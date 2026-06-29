@@ -4,7 +4,7 @@ An interactive, clinical-grade decision support dashboard engineered to translat
 
 ### 👤 Created By
 * **Lead Developer:** Srinivasta
-* **Streamlit App:** [https://poi-immunotherapy-screener-dpg5ngkprgcfhvmdvawucq.streamlit.app/]
+* **Streamlit App:** [(https://poi-immunotherapy-screener-dpg5ngkprgcfhvmdvawucq.streamlit.app/)]
 
 ### 🌐 Live Deployment & Code Architecture
 * **Live Web Dashboard:** [Insert Your Streamlit Deployed App URL Here]
