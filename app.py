@@ -33,57 +33,55 @@ explainer = shap.LinearExplainer(predictor_model, X_train)
 
 # 3. Workspace Navigation Layout Architecture (3 distinct Tabs)
 tab1, tab2, tab3 = st.tabs([
-    "📋 Tab 1: Patient Intake Form", 
+    "👥 Tab 1: Individual Patient Selection", 
     "📊 Tab 2: Cohort Analytics & Validity", 
     "⚡ Tab 3: Screening Prediction Outcome"
 ])
 
 # ==========================================
-# TAB 1: PATIENT INTAKE FORM (INPUT SECTION)
+# TAB 1: INDIVIDUAL PATIENT SELECTION (LOOKUP SECTION)
 # ==========================================
 with tab1:
-    st.header("📋 Patient Diagnostic Metrics Entry")
-    st.write("Provide the three required clinical variables below to process the screening logic.")
+    st.header("👥 Patient Diagnostics Registry Lookup")
+    st.write("Select an existing patient from the database cohort below to parse their clinical metrics into the model.")
     
-    col_input, col_info = st.columns([1.2, 0.8], gap="large")
+    col_select, col_display = st.columns([1.1, 0.9], gap="large")
     
-    with col_input:
-        with st.container(border=True):
-            pt_id = st.text_input("Patient Identifier / Record #", "PT-9482")
-            
-            # Input 1: Age
-            age = st.slider("1. Patient Age (Years)", 18, 40, 27)
-            
-            # Input 2: AMH Baseline
-            amh = st.slider("2. Baseline AMH Hormone Level (pmol/L)", 0.0, 3.5, 1.9, step=0.1)
-            
-            # Input 3: Autoimmune Profiles (Checkboxes)
-            st.markdown("**3. Associated Autoimmune Classifications (Select all that apply):**")
-            addison_check = st.checkbox("Addison's Disease (Adrenal Autoimmunity)")
-            hashimoto_check = st.checkbox("Hashimoto's Thyroiditis (Thyroid Autoimmunity)")
-            
-        # Convert checkbox interactions directly to binary integers for the model
-        is_addison = 1 if addison_check else 0
-        is_hashimoto = 1 if hashimoto_check else 0
+    with col_select:
+        # Searchable drop-down panel containing all 200 patients from the cohort database
+        patient_list = refine_data['Patient_ID'].tolist()
+        selected_pt_id = st.selectbox("🔍 Search & Select Patient Record from Registry", patient_list)
         
-        # Save variables to global session state
+        # Pull records dynamically based on selection instance
+        patient_record = refine_data[refine_data['Patient_ID'] == selected_pt_id].iloc[0]
+        
+        # Map variables out of database row
+        age = int(patient_record['Age'])
+        amh = float(patient_record['AMH_Baseline'])
+        is_addison = int(patient_record['Has_Addisons'])
+        is_hashimoto = int(patient_record['Has_Hashimotos'])
+        
+        # Save variables to global session state memory so Tab 3 can access them automatically
         st.session_state['input_data'] = pd.DataFrame([{
             'Age': age, 
             'AMH_Baseline': amh, 
             'Has_Addisons': is_addison, 
             'Has_Hashimotos': is_hashimoto
         }])
-        st.session_state['pt_id'] = pt_id
+        st.session_state['pt_id'] = selected_pt_id
         
-        st.success("✨ Inputs locked successfully! Navigate to **Tab 3** at the top of the page to view your custom outcome calculation.")
-
-    with col_info:
-        st.info("""
-        💡 **Clinical Verification Reference Guide:**
-        * **Age (18-40):** Tracks the inclusion criteria limits established by the Karolinska Institutet.
-        * **AMH Level:** Reflects residual baseline egg reserves. Values above 0.5 pmol/L indicate active follicle survival.
-        * **Addison's vs Hashimoto's:** B-cell immunotherapy specifically blocks the adrenal tissue cross-attacks found in Addison's disease profiles.
-        """)
+    with col_display:
+        # Visual Card showing what is currently loaded for the user
+        with st.container(border=True):
+            st.markdown(f"### 📋 Current Profile Selection: **{selected_pt_id}**")
+            st.write(f"• **Age:** {age} Years")
+            st.write(f"• **Baseline AMH:** {amh} pmol/L")
+            
+            st.markdown("**Associated Autoimmune Diagnoses:**")
+            st.checkbox("Addison's Disease (Adrenal)", value=bool(is_addison), disabled=True, key="chk_addison")
+            st.checkbox("Hashimoto's Thyroiditis (Thyroid)", value=bool(is_hashimoto), disabled=True, key="chk_hashimoto")
+            
+        st.success("✨ Patient variables locked! Click on **Tab 3** at the very top of the page to evaluate the screening outcomes.")
 
 # ==========================================
 # TAB 2: COHORT ANALYTICS & VALIDATION DATA
@@ -149,11 +147,16 @@ with tab3:
         input_df = st.session_state['input_data']
         pt_id = st.session_state['pt_id']
         
-        # Extract variables using .iloc[0] safely to avoid mapping errors
+        # Extract variables securely using .iloc[0]
         age_val = int(input_df['Age'].iloc[0])
         amh_val = float(input_df['AMH_Baseline'].iloc[0])
         addison_val = int(input_df['Has_Addisons'].iloc[0])
         hashimoto_val = int(input_df['Has_Hashimotos'].iloc[0])
+        
+        # Display the custom details of what the user selected in Tab 1
+        with st.container(border=True):
+            st.markdown(f"#### 🔍 Evaluating Parameters for Cohort Record: **{pt_id}**")
+            st.markdown(f"**Age Parameter:** `{age_val} Years` | **AMH Blood Metric:** `{amh_val} pmol/L` | **Addison's Profile:** `{bool(addison_val)}` | **Hashimoto's Profile:** `{bool(hashimoto_val)}` ")
         
         # Fire model math against session variables
         prob = predictor_model.predict_proba(input_df)[:, 1]
@@ -164,7 +167,7 @@ with tab3:
             st.warning("⚠️ **MEDICAL ALERT: Schmidt's Syndrome (APS-2) Detected.** Patient exhibits multiple autoimmune variables. Adrenal cortisol levels must be stabilized with steroid updates before addressing secondary thyroid components.")
             
         # Display the custom colored prediction box
-        st.subheader(f"💡 Evaluated Probability Profile for Record: {pt_id}")
+        st.subheader("💡 Diagnostic Outcomes")
         if prob_pct >= 75:
             st.success(f"🟢 **RECOMMENDED TRIAL CANDIDATE** — Response Probability: **{prob_pct:.1f}%**")
         elif prob_pct >= 40:
@@ -175,7 +178,7 @@ with tab3:
         # Display the tailored explainable AI graphics
         st.markdown("---")
         st.subheader("🎯 Custom Feature Weighting Vectors (SHAP)")
-        st.write("This chart details how much each of your 3 custom variables shifted the prediction percentage value away from the baseline average score.")
+        st.write("This chart details how much each of your custom variables shifted the prediction percentage value away from the baseline average score.")
         
         shap_values = explainer(input_df)
         fig_shap, ax_shap = plt.subplots(figsize=(6, 2.5))
@@ -190,4 +193,4 @@ with tab3:
         plt.tight_layout()
         st.pyplot(fig_shap)
     else:
-        st.warning("📋 No configuration file detected. Please adjust the input parameters inside **Tab 1** first.")
+        st.warning("📋 No configurations detected. Please choose a patient profile inside **Tab 1** first.")
