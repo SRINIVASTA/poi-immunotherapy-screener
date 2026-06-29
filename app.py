@@ -13,17 +13,21 @@ st.set_page_config(page_title="POI Immunotherapy Dashboard", page_icon="🧬", l
 st.title("🧬 Advanced POI Immunotherapy Diagnostics & Batch Screening Hub")
 st.markdown("---")
 
-# 2. Live Self-Training Mechanism (Runs entirely in Web Cloud Memory)
+# 2. Live Self-Training Mechanism (With Math Fix for Hashimoto's False Positives)
 @st.cache_resource
 def train_and_cache_live_model():
     refine_data = generate_large_cohort_data(n_patients=200)
     treatment_group = refine_data[refine_data['Trial_Arm_Rituximab'] == 1].copy()
     
-    # Train using both independent disease columns
-    X = treatment_group[['Age', 'AMH_Baseline', 'Has_Addisons', 'Has_Hashimotos']]
+    # MATH FIX: Formulate explicit clinical interaction layers
+    # This prevents the model from allowing high AMH to trigger false positives for Hashimoto's
+    treatment_group['AMH_x_Addisons'] = treatment_group['AMH_Baseline'] * treatment_group['Has_Addisons']
+    treatment_group['AMH_x_Hashimotos'] = treatment_group['AMH_Baseline'] * treatment_group['Has_Hashimotos']
+    
+    X = treatment_group[['Age', 'AMH_Baseline', 'Has_Addisons', 'Has_Hashimotos', 'AMH_x_Addisons', 'AMH_x_Hashimotos']]
     y = treatment_group['Ovarian_Reactivation']
     
-    model = LogisticRegression()
+    model = LogisticRegression(max_iter=1000)
     model.fit(X, y)
     return model, X, y
 
@@ -31,91 +35,56 @@ predictor_model, X_train, y_train = train_and_cache_live_model()
 refine_data = generate_large_cohort_data(n_patients=200)
 explainer = shap.LinearExplainer(predictor_model, X_train)
 
-# 3. Streamlined Workspace Layout (2 Consolidated Tabs)
-tab1, tab2 = st.tabs([
-    "📋 Tab 1: Individual Patient Selection & SHAP", 
-    "📁 Tab 2: Cohort Analytics & Validity"
+# 3. Workspace Navigation Layout Architecture (3 Standalone Structured Tabs)
+tab1, tab2, tab3 = st.tabs([
+    "📋 Tab 1: New Patient Intake Form", 
+    "📊 Tab 2: Cohort Analytics & Validity", 
+    "⚡ Tab 3: Screening Prediction Outcome"
 ])
 
 # ==========================================
-# TAB 1: ALL-IN-ONE SCREENER (LOOKUP + LIVE OUTPUTS)
+# TAB 1: NEW PATIENT INTAKE FORM
 # ==========================================
 with tab1:
-    st.header("📋 Patient Diagnostics Registry Lookup")
-    st.write("Select an existing patient from the database cohort below. The model will calculate and display everything on this page instantly.")
+    st.header("📋 New Test Patient Diagnostic Entry")
+    st.write("Provide custom parameters below, lock them in, and navigate to Tab 3 to view the outcome.")
     
-    # Split the screen: Left side for selecting patient, Right side for showing outputs
-    col_left_select, col_right_results = st.columns([1.1, 0.9], gap="large")
+    col_input, col_info = st.columns([1.2, 0.8], gap="large")
     
-    with col_left_select:
-        st.subheader("🔍 Cohort Selector")
-        # Searchable drop-down panel containing all 200 patients from the cohort database
-        patient_list = refine_data['Patient_ID'].tolist()
-        selected_pt_id = st.selectbox("Search & Select Patient Record from Registry", patient_list)
-        
-        # Pull records dynamically based on selection instance
-        patient_record = refine_data[refine_data['Patient_ID'] == selected_pt_id].iloc[0]
-        
-        # Map variables out of database row
-        age = int(patient_record['Age'])
-        amh = float(patient_record['AMH_Baseline'])
-        is_addison = int(patient_record['Has_Addisons'])
-        is_hashimoto = int(patient_record['Has_Hashimotos'])
-        
-        # Visual Card showing what is currently loaded for the user
-        with st.container(border=True):
-            st.markdown(f"### 📋 Profile Metrics for: **{selected_pt_id}**")
-            st.write(f"• **Age:** {age} Years")
-            st.write(f"• **Baseline AMH:** {amh} pmol/L")
+    with col_input:
+        with st.form(key="patient_intake_form"):
+            pt_id = st.text_input("Patient Identifier / Record #", "TEST-PT-01")
+            age = st.slider("1. Input Patient Age (Years)", 18, 40, 27)
+            amh = st.slider("2. Input Baseline AMH Hormone Level (pmol/L)", 0.0, 3.5, 1.9, step=0.1)
             
-            st.markdown("**Associated Autoimmune Diagnoses:**")
-            st.checkbox("Addison's Disease (Adrenal)", value=bool(is_addison), disabled=True, key="chk_addison")
-            st.checkbox("Hashimoto's Thyroiditis (Thyroid)", value=bool(is_hashimoto), disabled=True, key="chk_hashimoto")
+            st.markdown("**3. Select Associated Autoimmune Diagnoses:**")
+            addison_check = st.checkbox("Addison's Disease (Adrenal Autoimmunity)")
+            hashimoto_check = st.checkbox("Hashimoto's Thyroiditis (Thyroid Autoimmunity)")
             
-        st.info("""
-        💡 **Quick Clinical Reference:**
-        * **Addison's Profile:** Positively weighted vector based on Karolinska trial births.
-        * **AMH Blood Metric:** Reflects structural baseline egg reserves.
-        """)
+            submit_button = st.form_submit_button(label="⚡ Lock Custom Test Metrics", type="primary")
+            
+        if submit_button or 'input_data' not in st.session_state:
+            is_addison = 1 if addison_check else 0
+            is_hashimoto = 1 if hashimoto_check else 0
+            
+            # Formulate the payload dataframe to match fixed dimension layers
+            st.session_state['input_data'] = pd.DataFrame([{
+                'Age': age, 
+                'AMH_Baseline': amh, 
+                'Has_Addisons': is_addison, 
+                'Has_Hashimotos': is_hashimoto,
+                'AMH_x_Addisons': amh * is_addison,
+                'AMH_x_Hashimotos': amh * is_hashimoto
+            }])
+            st.session_state['pt_id'] = pt_id
+            st.success("✨ Custom test metrics locked into memory! Navigate to **Tab 3** at the top of the page to see outcomes.")
 
-    with col_right_results:
-        st.subheader("⚡ Model Diagnostics Output")
-        
-        # Format the parameters into an input dataframe for the machine learning model
-        input_df = pd.DataFrame([{'Age': age, 'AMH_Baseline': amh, 'Has_Addisons': is_addison, 'Has_Hashimotos': is_hashimoto}])
-        
-        # Fire prediction mathematical equations on input state changes
-        prob = predictor_model.predict_proba(input_df)[:, 1]
-        prob_pct = float(prob[0] * 100)
-        
-        # Fire medical warning if both conditions are active
-        if is_addison == 1 and is_hashimoto == 1:
-            st.warning("⚠️ **MEDICAL ALERT: Schmidt's Syndrome (APS-2) Detected.** Ensure adrenal steroid replacements are stabilized before addressing thyroid components to avoid blood pressure collapse.")
-            
-        # Output the color-coded probability alert block
-        if prob_pct >= 75:
-            st.success(f"🟢 **RECOMMENDED TRIAL CANDIDATE** — Response Probability: **{prob_pct:.1f}%**")
-        elif prob_pct >= 40:
-            st.warning(f"🟡 **BORDERLINE CANDIDATE** — Response Probability: **{prob_pct:.1f}%**")
-        else:
-            st.error(f"🔴 **LOW RESPONSE COMPLIANCE** — Response Probability: **{prob_pct:.1f}%**")
-            
-        # Render the custom feature weighting graph directly beneath the score
-        st.markdown("---")
-        st.subheader("🎯 Custom Feature Weighting Vectors (SHAP)")
-        
-        shap_values = explainer(input_df)
-        fig_shap, ax_shap = plt.subplots(figsize=(6, 2.3))
-        y_pos = np.arange(len(X_train.columns))
-        colors = ['#ff4b4b' if x < 0 else '#00cc66' for x in shap_values.values[0]]
-        
-        ax_shap.barh(y_pos, shap_values.values[0], color=colors, height=0.4)
-        ax_shap.set_yticks(y_pos)
-        ax_shap.set_yticklabels(['Age Parameter', 'AMH Blood Metric', "Has Addison's Profile", "Has Hashimoto's Profile"])
-        ax_shap.axvline(0, color='black', lw=1, linestyle='--')
-        ax_shap.set_xlabel('SHAP Value (Impact on Log-Odds)')
-        plt.tight_layout()
-        st.pyplot(fig_shap)
+    with col_info:
+        st.info("""
+        💡 **Clinical Testing Reference Guide:**
+        * **Addison's Profile:** Positively weighted vector based on Karolinska trial births.
+        * **AMH Blood Metric:** Measures remaining baseline egg reserves.
+        """)
 
 # ==========================================
 # TAB 2: COHORT ANALYTICS & VALIDATION DATA
@@ -127,7 +96,12 @@ with tab2:
     with col_metrics:
         st.subheader("📊 Cohort Distribution Summary")
         batch_df = refine_data.copy()
-        X_batch = batch_df[['Age', 'AMH_Baseline', 'Has_Addisons', 'Has_Hashimotos']]
+        
+        # Match batch calculation vectors to updated interaction layers
+        batch_df['AMH_x_Addisons'] = batch_df['AMH_Baseline'] * batch_df['Has_Addisons']
+        batch_df['AMH_x_Hashimotos'] = batch_df['AMH_Baseline'] * batch_df['Has_Hashimotos']
+        
+        X_batch = batch_df[['Age', 'AMH_Baseline', 'Has_Addisons', 'Has_Hashimotos', 'AMH_x_Addisons', 'AMH_x_Hashimotos']]
         batch_probabilities = predictor_model.predict_proba(X_batch)[:, 1]
         
         batch_df['Success_Probability_%'] = np.round(batch_probabilities * 100, 2)
@@ -162,6 +136,57 @@ with tab2:
         ax_roc.grid(True, linestyle=':', alpha=0.5)
         st.pyplot(fig_roc)
         
-    st.markdown("---")
-    st.subheader("🔍 Review Master Tabular Ledger (Baseline Training Profiles)")
-    st.dataframe(batch_df, use_container_width=True)
+    st.dataframe(batch_df.drop(columns=['AMH_x_Addisons', 'AMH_x_Hashimotos']), use_container_width=True)
+
+# ==========================================
+# TAB 3: SCREENING PREDICTION OUTCOME
+# ==========================================
+with tab3:
+    st.header("⚡ Live Test Inference Outcome")
+    
+    if 'input_data' in st.session_state:
+        input_df = st.session_state['input_data']
+        pt_id = st.session_state['pt_id']
+        
+        age_val = int(input_df['Age'].iloc[0])
+        amh_val = float(input_df['AMH_Baseline'].iloc[0])
+        addison_val = int(input_df['Has_Addisons'].iloc[0])
+        hashimoto_val = int(input_df['Has_Hashimotos'].iloc[0])
+        
+        with st.container(border=True):
+            st.markdown(f"#### 🔍 Custom Testing Parameters for: **{pt_id}**")
+            st.markdown(f"**Age Parameter:** `{age_val} Years` | **AMH Blood Metric:** `{amh_val} pmol/L` | **Addison's Profile:** `{bool(addison_val)}` | **Hashimoto's Profile:** `{bool(hashimoto_val)}` ")
+        
+        # Fire prediction math
+        prob = predictor_model.predict_proba(input_df)[:, 1]
+        prob_pct = float(prob[0] * 100)
+        
+        if addison_val == 1 and hashimoto_val == 1:
+            st.warning("⚠️ **MEDICAL ALERT: Schmidt's Syndrome (APS-2) Detected.** Patient exhibits multiple autoimmune variables. Adrenal cortisol levels must be stabilized with steroid updates before addressing secondary thyroid components.")
+            
+        st.subheader("💡 Calculated Probability Outcome")
+        if prob_pct >= 75:
+            st.success(f"🟢 **RECOMMENDED TRIAL CANDIDATE** — Response Probability: **{prob_pct:.1f}%**")
+        elif prob_pct >= 40:
+            st.warning(f"🟡 **BORDERLINE CANDIDATE** — Response Probability: **{prob_pct:.1f}%**")
+        else:
+            st.error(f"🔴 **LOW RESPONSE COMPLIANCE** — Response Probability: **{prob_pct:.1f}%**")
+            
+        st.markdown("---")
+        st.subheader("🎯 Custom Feature Weighting Vectors (SHAP)")
+        st.write("This chart details how much each feature vector parameter shifted the log-odds prediction value away from the baseline average score.")
+        
+        shap_values = explainer(input_df)
+        fig_shap, ax_shap = plt.subplots(figsize=(6, 2.8))
+        y_pos = np.arange(len(X_train.columns))
+        colors = ['#ff4b4b' if x < 0 else '#00cc66' for x in shap_values.values[0]]
+        
+        ax_shap.barh(y_pos, shap_values.values[0], color=colors, height=0.4)
+        ax_shap.set_yticks(y_pos)
+        ax_shap.set_yticklabels(['Age Parameter', 'AMH Metric', "Has Addison's", "Has Hashimoto's", "AMH x Addison's Interaction", "AMH x Hashimoto's Interaction"])
+        ax_shap.axvline(0, color='black', lw=1, linestyle='--')
+        ax_shap.set_xlabel('SHAP Value (Impact on Log-Odds)')
+        plt.tight_layout()
+        st.pyplot(fig_shap)
+    else:
+        st.warning("📋 No testing parameters detected. Please provide patient inputs inside **Tab 1** first.")
