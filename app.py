@@ -35,54 +35,67 @@ refine_data = generate_large_cohort_data(n_patients=200)
 explainer = shap.LinearExplainer(predictor_model, X_train)
 
 # 3. Workspace Navigation Layout Architecture
-tab1, tab2 = st.tabs(["📋 Single Patient Diagnostics & SHAP", "📁 Default Batch File Processing (200 Cohort)"])
+tab1, tab2 = st.tabs(["👥 Individual Patient Selection & SHAP", "📁 Default Batch File Processing (200 Cohort)"])
 
 # ==========================================
-# TAB 1: SINGLE PATIENT SCREENING ENGINE
+# TAB 1: MULTIPLE PATIENT SELECTOR ENGINE
 # ==========================================
 with tab1:
     col1, col2 = st.columns([1.1, 0.9], gap="large")
 
     with col1:
-        st.header("📋 Patient Eligibility Diagnostics")
-        st.write("Input custom patient parameters below. The web model will calculate the output instantly.")
+        st.header("👥 Patient Diagnostics Registry Lookup")
+        st.write("Select a patient from the database cohort to analyze their metrics and model outcomes instantly.")
         
+        # Dropdown selection containing all 200 patients from the cohort database
+        patient_list = refine_data['Patient_ID'].tolist()
+        selected_pt_id = st.selectbox("🔍 Search & Select Patient Record", patient_list)
+        
+        # Pull records dynamically based on selection instance
+        patient_record = refine_data[refine_data['Patient_ID'] == selected_pt_id].iloc[0]
+        
+        # Map variables out of database row
+        age = int(patient_record['Age'])
+        amh = float(patient_record['AMH_Baseline'])
+        profile_name = str(patient_record['Autoimmune_Profile'])
+        
+        # Visual Summary Card displaying selected metrics
         with st.container(border=True):
-            pt_id = st.text_input("Patient Identifier / Record #", "PT-9482")
-            age = st.slider("Patient Age (Years)", 18, 40, 27)
-            amh = st.slider("Baseline AMH Hormone Level (pmol/L)", 0.0, 3.5, 1.9, step=0.1)
-            condition = st.selectbox("Underlying Autoimmune Classification", ["Addison's Disease", "Hashimoto's Thyroiditis"])
+            st.markdown(f"### 📋 Profile Metrics for **{selected_pt_id}**")
+            st.write(f"• **Age:** {age} Years")
+            st.write(f"• **Baseline AMH:** {amh} pmol/L")
+            st.write(f"• **Autoimmune Classification:** {profile_name}")
+            
+            # Map features for calculation array matching matrix standards
+            is_addisons = 1 if profile_name == "Addison's" else 0
+            input_df = pd.DataFrame([{'Age': age, 'AMH_Baseline': amh, 'Is_Addisons': is_addisons}])
+
+        # Calculate live prediction logic automatically on change selection
+        prob = predictor_model.predict_proba(input_df)[:, 1]
+        prob_pct = float(prob[0] * 100) 
         
-        is_addisons = 1 if condition == "Addison's Disease" else 0
-        input_df = pd.DataFrame([{'Age': age, 'AMH_Baseline': amh, 'Is_Addisons': is_addisons}])
+        st.subheader("💡 Diagnostic Outcomes")
+        if prob_pct >= 75:
+            st.success(f"🟢 **RECOMMENDED TRIAL CANDIDATE** — Response Probability: **{prob_pct:.1f}%**")
+        elif prob_pct >= 40:
+            st.warning(f"🟡 **BORDERLINE CANDIDATE** — Response Probability: **{prob_pct:.1f}%**")
+        else:
+            st.error(f"🔴 **LOW RESPONSE COMPLIANCE** — Response Probability: **{prob_pct:.1f}%**")
+            
+        st.subheader("🎯 Feature Impact Visualization (SHAP)")
+        shap_values = explainer(input_df)
         
-        if st.button("⚡ Run Diagnostic Screening Evaluation", type="primary"):
-            prob = predictor_model.predict_proba(input_df)[:, 1]
-            # FIXED: Added [0] to correctly pull the numeric item out of the array
-            prob_pct = float(prob[0] * 100) 
-            
-            st.subheader("💡 Diagnostic Outcomes")
-            if prob_pct >= 75:
-                st.success(f"🟢 **RECOMMENDED TRIAL CANDIDATE** — Response Probability: **{prob_pct:.1f}%**")
-            elif prob_pct >= 40:
-                st.warning(f"🟡 **BORDERLINE CANDIDATE** — Response Probability: **{prob_pct:.1f}%**")
-            else:
-                st.error(f"🔴 **LOW RESPONSE COMPLIANCE** — Response Probability: **{prob_pct:.1f}%**")
-                
-            st.subheader("🎯 Feature Impact Visualization (SHAP)")
-            shap_values = explainer(input_df)
-            
-            fig_shap, ax_shap = plt.subplots(figsize=(6, 2.2))
-            y_pos = np.arange(len(X_train.columns))
-            colors = ['#ff4b4b' if x < 0 else '#00cc66' for x in shap_values.values[0]]
-            
-            ax_shap.barh(y_pos, shap_values.values[0], color=colors, height=0.4)
-            ax_shap.set_yticks(y_pos)
-            ax_shap.set_yticklabels(['Age', 'AMH Level', "Is B-Cell Autoimmune"])
-            ax_shap.axvline(0, color='black', lw=1, linestyle='--')
-            ax_shap.set_xlabel('SHAP Value (Impact on Log-Odds)')
-            plt.tight_layout()
-            st.pyplot(fig_shap)
+        fig_shap, ax_shap = plt.subplots(figsize=(6, 2.2))
+        y_pos = np.arange(len(X_train.columns))
+        colors = ['#ff4b4b' if x < 0 else '#00cc66' for x in shap_values.values[0]]
+        
+        ax_shap.barh(y_pos, shap_values.values[0], color=colors, height=0.4)
+        ax_shap.set_yticks(y_pos)
+        ax_shap.set_yticklabels(['Age', 'AMH Level', "Is B-Cell Autoimmune"])
+        ax_shap.axvline(0, color='black', lw=1, linestyle='--')
+        ax_shap.set_xlabel('SHAP Value (Impact on Log-Odds)')
+        plt.tight_layout()
+        st.pyplot(fig_shap)
 
     with col2:
         st.header("📊 Model Metrics & Validation Data")
