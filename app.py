@@ -31,7 +31,7 @@ predictor_model, X_train, y_train = train_and_cache_live_model()
 refine_data = generate_large_cohort_data(n_patients=200)
 explainer = shap.LinearExplainer(predictor_model, X_train)
 
-# 3. Workspace Navigation Layout Architecture (Now with 3 distinct Tabs)
+# 3. Workspace Navigation Layout Architecture (3 distinct Tabs)
 tab1, tab2, tab3 = st.tabs([
     "📋 Tab 1: Patient Intake Form", 
     "📊 Tab 2: Cohort Analytics & Validity", 
@@ -66,7 +66,7 @@ with tab1:
         is_addison = 1 if addison_check else 0
         is_hashimoto = 1 if hashimoto_check else 0
         
-        # Save variables to a global session state dictionary so Tab 3 can access them safely
+        # Save variables to global session state
         st.session_state['input_data'] = pd.DataFrame([{
             'Age': age, 
             'AMH_Baseline': amh, 
@@ -149,7 +149,7 @@ with tab3:
         input_df = st.session_state['input_data']
         pt_id = st.session_state['pt_id']
         
-        # Extract variables for alert badge triggers
+        # Extract variables using .iloc[0] safely to avoid mapping errors
         age_val = int(input_df['Age'].iloc[0])
         amh_val = float(input_df['AMH_Baseline'].iloc[0])
         addison_val = int(input_df['Has_Addisons'].iloc[0])
@@ -157,7 +157,7 @@ with tab3:
         
         # Fire model math against session variables
         prob = predictor_model.predict_proba(input_df)[:, 1]
-        prob_pct = float(prob * 100)
+        prob_pct = float(prob[0] * 100)
         
         # Critical medical alert checks
         if addison_val == 1 and hashimoto_val == 1:
@@ -180,9 +180,9 @@ with tab3:
         shap_values = explainer(input_df)
         fig_shap, ax_shap = plt.subplots(figsize=(6, 2.5))
         y_pos = np.arange(len(X_train.columns))
-        colors = ['#ff4b4b' if x < 0 else '#00cc66' for x in shap_values.values]
+        colors = ['#ff4b4b' if x < 0 else '#00cc66' for x in shap_values.values[0]]
         
-        ax_shap.barh(y_pos, shap_values.values, color=colors, height=0.4)
+        ax_shap.barh(y_pos, shap_values.values[0], color=colors, height=0.4)
         ax_shap.set_yticks(y_pos)
         ax_shap.set_yticklabels(['Age Parameter', 'AMH Blood Metric', "Has Addison's Profile", "Has Hashimoto's Profile"])
         ax_shap.axvline(0, color='black', lw=1, linestyle='--')
