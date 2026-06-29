@@ -58,7 +58,8 @@ with tab1:
         
         if st.button("⚡ Run Diagnostic Screening Evaluation", type="primary"):
             prob = predictor_model.predict_proba(input_df)[:, 1]
-            prob_pct = float(prob * 100) 
+            # FIXED: Added [0] to correctly pull the numeric item out of the array
+            prob_pct = float(prob[0] * 100) 
             
             st.subheader("💡 Diagnostic Outcomes")
             if prob_pct >= 75:
@@ -73,9 +74,9 @@ with tab1:
             
             fig_shap, ax_shap = plt.subplots(figsize=(6, 2.2))
             y_pos = np.arange(len(X_train.columns))
-            colors = ['#ff4b4b' if x < 0 else '#00cc66' for x in shap_values.values]
+            colors = ['#ff4b4b' if x < 0 else '#00cc66' for x in shap_values.values[0]]
             
-            ax_shap.barh(y_pos, shap_values.values, color=colors, height=0.4)
+            ax_shap.barh(y_pos, shap_values.values[0], color=colors, height=0.4)
             ax_shap.set_yticks(y_pos)
             ax_shap.set_yticklabels(['Age', 'AMH Level', "Is B-Cell Autoimmune"])
             ax_shap.axvline(0, color='black', lw=1, linestyle='--')
@@ -91,7 +92,6 @@ with tab1:
         
         fig, ax = plt.subplots(figsize=(5, 4.2))
         ax.plot(fpr, tpr, color='#ff6600', lw=2.5, label=f'Model ROC (AUC = {auc_score:.3f})')
-        # FIXED LINE 95: Populated [0, 1] arrays for x and y coordinates
         ax.plot([0, 1], [0, 1], color='#112266', lw=1, linestyle='--')
         ax.set_xlim([0.0, 1.0])
         ax.set_ylim([0.0, 1.05])
