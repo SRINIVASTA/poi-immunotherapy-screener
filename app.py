@@ -51,7 +51,6 @@ with tab1:
         patient_list = refine_data['Patient_ID'].tolist()
         selected_pt_id = st.selectbox("🔍 Search & Select Patient Record", patient_list)
         
-        # FIXED: Added [0] indexer to correctly pull values for both Addison's and Hashimoto's rows
         patient_record = refine_data[refine_data['Patient_ID'] == selected_pt_id].iloc[0]
         
         # Map variables out of database row
@@ -75,7 +74,8 @@ with tab1:
 
         # Calculate live prediction logic automatically on change selection
         prob = predictor_model.predict_proba(input_df)[:, 1]
-        prob_pct = float(prob * 100) 
+        # FIXED: Added [0] index to pull the raw value before conversion to float
+        prob_pct = float(prob[0] * 100) 
         
         st.subheader("💡 Diagnostic Outcomes")
         if prob_pct >= 75:
@@ -90,9 +90,9 @@ with tab1:
         
         fig_shap, ax_shap = plt.subplots(figsize=(6, 2.2))
         y_pos = np.arange(len(X_train.columns))
-        colors = ['#ff4b4b' if x < 0 else '#00cc66' for x in shap_values.values]
+        colors = ['#ff4b4b' if x < 0 else '#00cc66' for x in shap_values.values[0]]
         
-        ax_shap.barh(y_pos, shap_values.values, color=colors, height=0.4)
+        ax_shap.barh(y_pos, shap_values.values[0], color=colors, height=0.4)
         ax_shap.set_yticks(y_pos)
         ax_shap.set_yticklabels(['Age', 'AMH Level', "Is B-Cell Autoimmune"])
         ax_shap.axvline(0, color='black', lw=1, linestyle='--')
