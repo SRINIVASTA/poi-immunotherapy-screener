@@ -161,7 +161,8 @@ with tab3:
         
         # Compute testing instance inference against the trained model weights
         prob = predictor_model.predict_proba(input_df)[:, 1]
-        prob_pct = float(prob * 100)
+        # FIXED: Added [0] index accessor to safely extract the raw float scalar before text formatting
+        prob_pct = float(prob[0] * 100)
         
         # Fire medical warning if both boxes are checked
         if addison_val == 1 and hashimoto_val == 1:
@@ -181,6 +182,7 @@ with tab3:
         st.subheader("🎯 Custom Feature Weighting Vectors (SHAP)")
         st.write("This chart details how much each of your custom variables shifted the prediction percentage value away from the baseline average score.")
         
+        # FIXED SHAP array unpacking for standalone input instances
         shap_values = explainer(input_df)
         fig_shap, ax_shap = plt.subplots(figsize=(6, 2.5))
         y_pos = np.arange(len(X_train.columns))
