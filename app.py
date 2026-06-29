@@ -13,13 +13,12 @@ st.set_page_config(page_title="POI Immunotherapy Dashboard", page_icon="🧬", l
 st.title("🧬 Advanced POI Immunotherapy Diagnostics & Batch Screening Hub")
 st.markdown("---")
 
-# 2. Live Self-Training Mechanism (Trains on the 200-Patient Cohort)
+# 2. Live Self-Training Mechanism
 @st.cache_resource
 def train_and_cache_live_model():
     refine_data = generate_large_cohort_data(n_patients=200)
     treatment_group = refine_data[refine_data['Trial_Arm_Rituximab'] == 1].copy()
     
-    # Train using the cohort features
     X = treatment_group[['Age', 'AMH_Baseline', 'Has_Addisons', 'Has_Hashimotos']]
     y = treatment_group['Ovarian_Reactivation']
     
@@ -31,16 +30,14 @@ predictor_model, X_train, y_train = train_and_cache_live_model()
 refine_data = generate_large_cohort_data(n_patients=200)
 explainer = shap.LinearExplainer(predictor_model, X_train)
 
-# 3. Workspace Navigation Layout Architecture (3 distinct Tabs)
+# 3. Tabs
 tab1, tab2, tab3 = st.tabs([
     "📋 Tab 1: New Patient Intake Form", 
     "📊 Tab 2: Cohort Analytics & Validity", 
     "⚡ Tab 3: Screening Prediction Outcome"
 ])
 
-# ==========================================
-# TAB 1: NEW PATIENT INTAKE FORM (INPUTS TYPE)
-# ==========================================
+# TAB 1: INPUTS
 with tab1:
     st.header("📋 New Test Patient Diagnostic Entry")
     st.write("Provide custom variables below. The trained model will evaluate this input as an independent test sample.")
@@ -50,47 +47,28 @@ with tab1:
     with col_input:
         with st.container(border=True):
             pt_id = st.text_input("Patient Identifier / Record #", "TEST-PT-01")
-            
-            # Custom input 1: Age
             age = st.slider("1. Input Patient Age (Years)", 18, 40, 27)
-            
-            # Custom input 2: AMH Baseline
             amh = st.slider("2. Input Baseline AMH Hormone Level (pmol/L)", 0.0, 3.5, 1.9, step=0.1)
             
-            # Custom input 3: Autoimmune Checkboxes
             st.markdown("**3. Select Associated Autoimmune Diagnoses:**")
             addison_check = st.checkbox("Addison's Disease (Adrenal Autoimmunity)")
             hashimoto_check = st.checkbox("Hashimoto's Thyroiditis (Thyroid Autoimmunity)")
             
-        # Convert user inputs to binary integers for testing
         is_addison = 1 if addison_check else 0
         is_hashimoto = 1 if hashimoto_check else 0
         
-        # Save custom inputs to global session state for Tab 3 evaluation
         st.session_state['input_data'] = pd.DataFrame([{
-            'Age': age, 
-            'AMH_Baseline': amh, 
-            'Has_Addisons': is_addison, 
-            'Has_Hashimotos': is_hashimoto
+            'Age': age, 'AMH_Baseline': amh, 'Has_Addisons': is_addison, 'Has_Hashimotos': is_hashimoto
         }])
         st.session_state['pt_id'] = pt_id
-        
-        st.success("✨ Custom test metrics locked into memory! Navigate to **Tab 3** to execute inference and view outcomes.")
+        st.success("✨ Custom test metrics locked into memory! Navigate to **Tab 3** to execute inference.")
 
     with col_info:
-        st.info("""
-        💡 **Clinical Testing Reference:**
-        * **Age (18-40):** Tests the candidate boundaries based on the Karolinska study.
-        * **AMH Level:** Evaluates dormant reserve volume. High values give the model strong responsive features.
-        * **Autoimmune Flags:** Simulates the specific background profile targeting.
-        """)
+        st.info("💡 **Clinical Testing Reference:** Adjust metrics to evaluate the candidacy profiles.")
 
-# ==========================================
-# TAB 2: COHORT ANALYTICS & VALIDATION DATA
-# ==========================================
+# TAB 2: ANALYTICS
 with tab2:
     st.header("📁 200-Patient Training Dataset & Model Performance")
-    
     col_metrics, col_roc = st.columns(2, gap="large")
     
     with col_metrics:
@@ -110,10 +88,8 @@ with tab2:
             if category not in status_counts: status_counts[category] = 0
         status_counts = status_counts.loc[["Highly Recommended", "Borderline Review", "Not Recommended"]]
         
-        # Donut Chart Rendering
         fig_pie, ax_pie = plt.subplots(figsize=(5, 3.2))
-        colors_pie = ['#00cc66', '#ffaa00', '#ff4b4b']
-        ax_pie.pie(status_counts.values, labels=status_counts.index, autopct='%1.1f%%', startangle=90, colors=colors_pie)
+        ax_pie.pie(status_counts.values, labels=status_counts.index, autopct='%1.1f%%', startangle=90, colors=['#00cc66', '#ffaa00', '#ff4b4b'])
         ax_pie.axis('equal')
         plt.tight_layout()
         st.pyplot(fig_pie)
@@ -133,42 +109,31 @@ with tab2:
         ax_roc.grid(True, linestyle=':', alpha=0.5)
         st.pyplot(fig_roc)
         
-    st.markdown("---")
-    st.subheader("🔍 Review Master Tabular Ledger (Baseline Training Profiles)")
     st.dataframe(batch_df, use_container_width=True)
 
-# ==========================================
-# TAB 3: SCREENING PREDICTION OUTCOME (TEST CASE SUMMARY)
-# ==========================================
+# TAB 3: STANDALONE OUTPUTS
 with tab3:
     st.header("⚡ Live Test Inference Outcome")
     
-    # Read custom inputs directly from memory
     if 'input_data' in st.session_state:
         input_df = st.session_state['input_data']
         pt_id = st.session_state['pt_id']
         
-        # Extract individual custom features using .iloc
         age_val = int(input_df['Age'].iloc[0])
         amh_val = float(input_df['AMH_Baseline'].iloc[0])
         addison_val = int(input_df['Has_Addisons'].iloc[0])
         hashimoto_val = int(input_df['Has_Hashimotos'].iloc[0])
         
-        # Summary Card displaying what the user entered in Tab 1
         with st.container(border=True):
             st.markdown(f"#### 🔍 Custom Testing Parameters for: **{pt_id}**")
             st.markdown(f"**Age Parameter:** `{age_val} Years` | **AMH Blood Metric:** `{amh_val} pmol/L` | **Addison's Profile:** `{bool(addison_val)}` | **Hashimoto's Profile:** `{bool(hashimoto_val)}` ")
         
-        # Compute testing instance inference against the trained model weights
         prob = predictor_model.predict_proba(input_df)[:, 1]
-        # FIXED: Added [0] index accessor to safely extract the raw float scalar before text formatting
         prob_pct = float(prob[0] * 100)
         
-        # Fire medical warning if both boxes are checked
         if addison_val == 1 and hashimoto_val == 1:
-            st.warning("⚠️ **MEDICAL ALERT: Schmidt's Syndrome (APS-2) Detected.** Patient exhibits multiple autoimmune variables. Adrenal cortisol levels must be stabilized with steroid updates before addressing secondary thyroid components.")
+            st.warning("⚠️ **MEDICAL ALERT: Schmidt's Syndrome (APS-2) Detected.** Ensure adrenal steroid replacements are stabilized before addressing thyroid components.")
             
-        # Display the custom colored prediction box
         st.subheader("💡 Calculated Probability Outcome")
         if prob_pct >= 75:
             st.success(f"🟢 **RECOMMENDED TRIAL CANDIDATE** — Response Probability: **{prob_pct:.1f}%**")
@@ -177,12 +142,9 @@ with tab3:
         else:
             st.error(f"🔴 **LOW RESPONSE COMPLIANCE** — Response Probability: **{prob_pct:.1f}%**")
             
-        # Display the tailored explainable AI graphics
         st.markdown("---")
         st.subheader("🎯 Custom Feature Weighting Vectors (SHAP)")
-        st.write("This chart details how much each of your custom variables shifted the prediction percentage value away from the baseline average score.")
         
-        # FIXED SHAP array unpacking for standalone input instances
         shap_values = explainer(input_df)
         fig_shap, ax_shap = plt.subplots(figsize=(6, 2.5))
         y_pos = np.arange(len(X_train.columns))
