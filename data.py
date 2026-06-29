@@ -3,17 +3,11 @@ import pandas as pd
 import numpy as np
 
 def generate_large_cohort_data(n_patients=200, seed=42):
-    """
-    Generates a synthetic cohort of patients based on clinical trial criteria
-    published in NEJM Evidence (Karolinska Institutet).
-    """
     np.random.seed(seed)
-    
     patient_ids = [f'REFINE-{i:03d}' for i in range(1, n_patients + 1)]
     ages = np.random.randint(18, 40, size=n_patients)
     conditions = np.random.choice(["Addison's", "Hashimoto's"], size=n_patients, p=[0.55, 0.45])
     
-    # AMH Baseline mapping based on Karolinska trial parameters
     amh_baseline = np.where(conditions == "Addison's", 
                             np.random.uniform(0.7, 3.2, size=n_patients), 
                             np.random.uniform(0.0, 0.5, size=n_patients))
@@ -33,13 +27,7 @@ def generate_large_cohort_data(n_patients=200, seed=42):
                 follicle_count.append(0)
                 
     ovarian_reactivation = [1 if f >= 3 else 0 for f in follicle_count]
-    
-    df = pd.DataFrame({
-        'Patient_ID': patient_ids, 
-        'Age': ages, 
-        'Autoimmune_Profile': conditions, 
-        'AMH_Baseline': amh_baseline, 
-        'Trial_Arm_Rituximab': trial_arm,
-        'Ovarian_Reactivation': ovarian_reactivation
+    return pd.DataFrame({
+        'Patient_ID': patient_ids, 'Age': ages, 'Autoimmune_Profile': conditions, 
+        'AMH_Baseline': amh_baseline, 'Trial_Arm_Rituximab': trial_arm, 'Ovarian_Reactivation': ovarian_reactivation
     })
-    return df
