@@ -1,12 +1,14 @@
 # 🧬 Advanced POI Immunotherapy Diagnostics & Batch Screening Hub
 
+[![Streamlit App](https://streamlit.io)](https://poi-immunotherapy-screener-dpg5ngkprgcfhvmdvawucq.streamlit.app/)
+
 An interactive, clinical-grade decision support dashboard engineered to translate reproductive medicine breakthroughs into structured predictive analytics. This platform models patient eligibility and responsiveness to B-cell depletion immunotherapy (Rituximab) for women experiencing **Premature Ovarian Insufficiency (POI)**, mirroring the foundational clinical trial data published by the **Karolinska Institutet** in *NEJM Evidence*.
 
 ### 👤 Created By
 * **Lead Developer:** Srinivasta
 
 ### 🌐 Live Deployment & Code Architecture
-* **Live Web Dashboard:** [https://poi-immunotherapy-screener-dpg5ngkprgcfhvmdvawucq.streamlit.app/]
+* **Live Web Dashboard:** [https://poi-immunotherapy-screener-dpg5ngkprgcfhvmdvawucq.streamlit.app/](https://poi-immunotherapy-screener-dpg5ngkprgcfhvmdvawucq.streamlit.app/)
 * **Repository Architecture:** Distributed across a lightweight, decoupled framework:
   * `app.py`: Core presentation layer, self-training workflow, and inference graphics.
   * `data.py`: Synthetic patient registry generation engine.
@@ -52,7 +54,7 @@ Navigate to **Tab 2** within the interactive interface to review the global perf
 To run this medical screening laboratory on your local machine, open your terminal and execute the following sequence:
 
 ```bash
-# 1. Clone the repository
+# 1. Clone the repository (Replace YOUR_USERNAME with your GitHub handle)
 git clone https://github.com
 cd poi-immunotherapy-screener
 
