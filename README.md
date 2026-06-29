@@ -4,10 +4,9 @@ An interactive, clinical-grade decision support dashboard engineered to translat
 
 ### 👤 Created By
 * **Lead Developer:** Srinivasta
-* **Streamlit App:** [(https://poi-immunotherapy-screener-dpg5ngkprgcfhvmdvawucq.streamlit.app/)]
 
 ### 🌐 Live Deployment & Code Architecture
-* **Live Web Dashboard:** [Insert Your Streamlit Deployed App URL Here]
+* **Live Web Dashboard:** [https://poi-immunotherapy-screener-dpg5ngkprgcfhvmdvawucq.streamlit.app/]
 * **Repository Architecture:** Distributed across a lightweight, decoupled framework:
   * `app.py`: Core presentation layer, self-training workflow, and inference graphics.
   * `data.py`: Synthetic patient registry generation engine.
