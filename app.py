@@ -51,7 +51,7 @@ with tab1:
         patient_list = refine_data['Patient_ID'].tolist()
         selected_pt_id = st.selectbox("🔍 Search & Select Patient Record", patient_list)
         
-        # Pull records dynamically based on selection instance
+        # FIXED: Added [0] indexer to correctly pull values for both Addison's and Hashimoto's rows
         patient_record = refine_data[refine_data['Patient_ID'] == selected_pt_id].iloc[0]
         
         # Map variables out of database row
@@ -59,12 +59,15 @@ with tab1:
         amh = float(patient_record['AMH_Baseline'])
         profile_name = str(patient_record['Autoimmune_Profile'])
         
+        # Format display name nicely for clinician reading interface
+        display_condition = "Addison's Disease" if profile_name == "Addison's" else "Hashimoto's Thyroiditis"
+        
         # Visual Summary Card displaying selected metrics
         with st.container(border=True):
             st.markdown(f"### 📋 Profile Metrics for **{selected_pt_id}**")
             st.write(f"• **Age:** {age} Years")
             st.write(f"• **Baseline AMH:** {amh} pmol/L")
-            st.write(f"• **Autoimmune Classification:** {profile_name}")
+            st.write(f"• **Autoimmune Classification:** {display_condition}")
             
             # Map features for calculation array matching matrix standards
             is_addisons = 1 if profile_name == "Addison's" else 0
@@ -72,7 +75,7 @@ with tab1:
 
         # Calculate live prediction logic automatically on change selection
         prob = predictor_model.predict_proba(input_df)[:, 1]
-        prob_pct = float(prob[0] * 100) 
+        prob_pct = float(prob * 100) 
         
         st.subheader("💡 Diagnostic Outcomes")
         if prob_pct >= 75:
@@ -87,9 +90,9 @@ with tab1:
         
         fig_shap, ax_shap = plt.subplots(figsize=(6, 2.2))
         y_pos = np.arange(len(X_train.columns))
-        colors = ['#ff4b4b' if x < 0 else '#00cc66' for x in shap_values.values[0]]
+        colors = ['#ff4b4b' if x < 0 else '#00cc66' for x in shap_values.values]
         
-        ax_shap.barh(y_pos, shap_values.values[0], color=colors, height=0.4)
+        ax_shap.barh(y_pos, shap_values.values, color=colors, height=0.4)
         ax_shap.set_yticks(y_pos)
         ax_shap.set_yticklabels(['Age', 'AMH Level', "Is B-Cell Autoimmune"])
         ax_shap.axvline(0, color='black', lw=1, linestyle='--')
